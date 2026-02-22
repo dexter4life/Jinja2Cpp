@@ -15,6 +15,13 @@
     "boost-regex",
     "boost-lexical-cast",
     "boost-numeric-conversion",
+    "expected-lite",
+    "fmt",
+    "nlohmann-json",
+    "optional-lite",
+    "rapidjson",
+    "string-view-lite",
+    "variant-lite",
     {
       "name": "vcpkg-cmake",
       "host": true

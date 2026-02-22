@@ -177,69 +177,64 @@ namespace
 {
 
 using FormatContext = fmt::format_context;
-using FormatArgument = fmt::basic_format_arg<FormatContext>;
 using FormatDynamicArgsStore = fmt::dynamic_format_arg_store<FormatContext>;
 
-struct FormatArgumentConverter : visitors::BaseVisitor<FormatArgument>
-{
-    using result_t = FormatArgument;
+struct FormatArgumentConverter : visitors::BaseVisitor<void> {
+  using BaseVisitor::operator();
 
-    using BaseVisitor::operator();
+  FormatArgumentConverter(const RenderContext *context,
+                          FormatDynamicArgsStore &store)
+      : m_context(context), m_store(store) {}
 
-    FormatArgumentConverter(const RenderContext* context, FormatDynamicArgsStore& store)
-        : m_context(context)
-        , m_store(store)
-    {
+  FormatArgumentConverter(const RenderContext *context,
+                          FormatDynamicArgsStore &store,
+                          const std::string &name)
+      : m_context(context), m_store(store), m_name(name), m_named(true) {}
+
+  void operator()(const ListAdapter &list) const {
+    make_result(Apply<PrettyPrinter>(list, m_context));
+  }
+
+  void operator()(const MapAdapter &map) const {
+    make_result(Apply<PrettyPrinter>(map, m_context));
+  }
+
+  void operator()(const std::string &str) const { make_result(str); }
+
+  void operator()(const nonstd::string_view &str) const {
+    make_result(std::string(str.data(), str.size()));
+  }
+
+  void operator()(const std::wstring &str) const {
+    make_result(ConvertString<std::string>(str));
+  }
+
+  void operator()(const nonstd::wstring_view &str) const {
+    make_result(ConvertString<std::string>(str));
+  }
+
+  void operator()(double val) const { make_result(val); }
+
+  void operator()(int64_t val) const { make_result(val); }
+
+  void operator()(bool val) const { make_result(val ? "true"s : "false"s); }
+
+  void operator()(EmptyValue) const { make_result("none"s); }
+
+  void operator()(const Callable &) const { make_result("<callable>"s); }
+
+  template <typename T> void make_result(const T &t) const {
+    if (!m_named) {
+      m_store.push_back(t);
+    } else {
+      m_store.push_back(fmt::arg(m_name.c_str(), t));
     }
+  }
 
-    FormatArgumentConverter(const RenderContext* context, FormatDynamicArgsStore& store, const std::string& name)
-        : m_context(context)
-        , m_store(store)
-        , m_name(name)
-        , m_named(true)
-    {
-    }
-
-    result_t operator()(const ListAdapter& list) const { return make_result(Apply<PrettyPrinter>(list, m_context)); }
-
-    result_t operator()(const MapAdapter& map) const { return make_result(Apply<PrettyPrinter>(map, m_context)); }
-
-    result_t operator()(const std::string& str) const { return make_result(str); }
-
-    result_t operator()(const nonstd::string_view& str) const { return make_result(std::string(str.data(), str.size())); }
-
-    result_t operator()(const std::wstring& str) const { return make_result(ConvertString<std::string>(str)); }
-
-    result_t operator()(const nonstd::wstring_view& str) const { return make_result(ConvertString<std::string>(str)); }
-
-    result_t operator()(double val) const { return make_result(val); }
-
-    result_t operator()(int64_t val) const { return make_result(val); }
-
-    result_t operator()(bool val) const { return make_result(val ? "true"s : "false"s); }
-
-    result_t operator()(EmptyValue) const { return make_result("none"s); }
-
-    result_t operator()(const Callable&) const { return make_result("<callable>"s); }
-
-    template<typename T>
-    result_t make_result(const T& t) const
-    {
-        if (!m_named)
-        {
-            m_store.push_back(t);
-        }
-        else
-        {
-            m_store.push_back(fmt::arg(m_name.c_str(), t));
-        }
-        return fmt::detail::make_arg<FormatContext>(t);
-    }
-
-    const RenderContext* m_context;
-    FormatDynamicArgsStore& m_store;
-    const std::string m_name;
-    bool m_named = false;
+  const RenderContext *m_context;
+  FormatDynamicArgsStore &m_store;
+  const std::string m_name;
+  bool m_named = false;
 };
 
 } // namespace
